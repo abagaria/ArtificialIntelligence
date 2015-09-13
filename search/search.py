@@ -19,6 +19,21 @@ Pacman agents (in searchAgents.py).
 
 import util
 
+class Node:
+    # Nodes constitute a graph
+
+    def __init__(self, path, state, priority = 1.0):
+
+        # path is the sequence of steps to get to the current node
+        self.path = path
+
+        # state is (x, y) of the current node
+        self.state = state
+
+        # low priority is popped first from priority queues
+        self.priority = priority
+
+
 class SearchProblem:
     """
     This class outlines the structure of a search problem, but doesn't implement
@@ -89,39 +104,23 @@ def depthFirstSearch(problem):
     successors is of the form [(x, y), direction, cost]
     """
 
-    closed = set()
+    # For DFS, implement fringe as LIFO stack
     fringe = util.Stack()
-    fringe.push(problem.getStartState())
 
-    while True:
-        if fringe.isEmpty():
-            return []
+    return graphSearch(problem, fringe)
 
-        node = fringe.pop()
-        if node.isGoalState():
-            return node
-
-        # Check if node has been visited, i.e, is it in closed?
-        if node not in closed:
-            closed.add(node)
-
-            for successor in problem.getSuccessors(node):
-
-
-
-
-
-    util.raiseNotDefined()
 
 def breadthFirstSearch(problem):
     """Search the shallowest nodes in the search tree first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+
+    # For BFS, implement fringe as a FIFO queue
+    fringe = util.Queue()
+    return graphSearch(problem, fringe)
 
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    priorityFunc = lambda node: node.priority
+    return graphSearch(problem, fringe=util.PriorityQueueWithFunction(priorityFunc), debug = "In UCS")
 
 def nullHeuristic(state, problem=None):
     """
@@ -132,9 +131,42 @@ def nullHeuristic(state, problem=None):
 
 def aStarSearch(problem, heuristic=nullHeuristic):
     """Search the node that has the lowest combined cost and heuristic first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    priorityFunc = lambda node : node.priority + heuristic(node.state, problem)
+    return graphSearch(problem, fringe=util.PriorityQueueWithFunction(priorityFunc))
 
+def graphSearch(problem, fringe, debug = None):
+
+    # store all visited nodes in closed
+    closed = set()
+
+    # root of the tree
+    root = Node([], problem.getStartState())
+
+    # initialize the fringe with the root of the tree
+    fringe.push(root)
+
+    while not fringe.isEmpty():
+
+        currentNode = fringe.pop()
+
+        # Goal test
+        if problem.isGoalState(currentNode.state):
+            return currentNode.path
+
+        # Expand unexplored nodes
+        if currentNode.state not in closed:
+            closed.add(currentNode.state)
+
+            for (state, action, cost) in problem.getSuccessors(currentNode.state):
+                if cost == 4.0 and debug:
+                    print "state: %s, action: %s, cost: %s" % (state, action, cost)
+                childPath = currentNode.path + [action]
+                childNode = Node(path=childPath, state=state)
+                childNode.priority = cost
+                fringe.push(childNode)
+
+    # if no goal node found, return error
+    return -1
 
 # Abbreviations
 bfs = breadthFirstSearch
