@@ -266,14 +266,31 @@ def euclideanHeuristic(position, problem, info={}):
 # This portion is incomplete.  Time to write code!  #
 #####################################################
 
+# For the Corners Problem, we define a State data structure so as to
+# encapsulate information about the position as well as the corners
+# in the maze already visited.
 class State:
     # Structure contains the information necessary to specify state
     def __init__(self, position, visitedCorners):
+
         # current position
         self.position = position
-        # tracks whether corners of maze have been visited
+
+        # tuple which tracks whether corners of maze have been visited.
+        # This needs to be a tuple and not a list because tuples are
+        # hashable
         self.visitedCorners = visitedCorners
 
+    # operator== for State object: check if both data members are equal
+    def __eq__(self, other):
+        return  (self.position == other.position) \
+            and (self.visitedCorners == other.visitedCorners)
+
+    # hash function for State class to work well with sets that add this
+    # object. We hash a tuple because tuples are immutable -- unlike
+    # data structures like lists which are mutable.
+    def __hash__(self):
+        return hash((self.position, self.visitedCorners))
 
 class CornersProblem(search.SearchProblem):
     """
@@ -295,19 +312,15 @@ class CornersProblem(search.SearchProblem):
                 print 'Warning: no food in corner ' + str(corner)
         self._expanded = 0 # DO NOT CHANGE; Number of search nodes expanded
 
-        # Please add any code here which you would like to use
-        # in initializing the problem
-        self.visitedCorners = 4 * [False]
-        self.state = self.getStartState()
-
 
     def getStartState(self):
         """
         Returns the start state (in your state space, not the full Pacman state
         space)
         """
+
         startingPosition = self.startingPosition
-        startingVisited = self.visitedCorners
+        startingVisited = (False, False, False, False)
         return State(startingPosition, startingVisited)
 
 
@@ -315,7 +328,7 @@ class CornersProblem(search.SearchProblem):
         """
         Returns whether this search state is a goal state of the problem.
         """
-        return self.state.visitedCorners == (4 * [True])
+        return state.visitedCorners == (True, True, True, True)
 
     def getSuccessors(self, state):
         """
@@ -330,17 +343,30 @@ class CornersProblem(search.SearchProblem):
 
         successors = []
         for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
-            x,y = state
+            x,y = state.position
             dx, dy = Actions.directionToVector(action)
             nextx, nexty = int(x + dx), int(y + dy)
             if not self.walls[nextx][nexty]:
-                nextState = (nextx, nexty)
+                nextStatePos = (nextx, nexty)
+                visitedCorners = self.getVisitedCorners(nextStatePos, state.visitedCorners)
+                nextState = State(nextStatePos, visitedCorners)
                 cost = 1.0
-                successors.append( ( nextState, action, cost) )
+                successors.append( (nextState, action, cost) )
 
         self._expanded += 1 # DO NOT CHANGE
 
         return successors
+
+    def getVisitedCorners(self, statePosition, parentVisitedCorners):
+
+        currentVisitedCorners = [(statePosition == corner) for corner in self.corners]
+
+        for (ind, visited) in enumerate(parentVisitedCorners):
+            if visited:
+                currentVisitedCorners[ind] = True
+
+        return tuple(currentVisitedCorners)
+
 
     def getCostOfActions(self, actions):
         """
@@ -372,7 +398,24 @@ def cornersHeuristic(state, problem):
     corners = problem.corners # These are the corner coordinates
     walls = problem.walls # These are the walls of the maze, as a Grid (game.py)
 
-    return 0 # Default to trivial solution
+    distToClosest = manhattanHeuristicManyGoals( state, problem)
+
+    return distToClosest # Default to trivial solution
+
+def manhattanHeuristicManyGoals(state, problem):
+    "The Manhattan distance heuristic for a PositionSearchProblem"
+    xy1 = state.position
+    dist = lambda x, y: abs(x[0] - y[0]) + abs(x[1] - y[1])
+
+    unvisited_corners = []
+    for bool, corner in zip(state.visitedCorners, problem.corners):
+        if not bool:
+            unvisited_corners.append(corner)
+
+    distances = [dist(xy1, corner) for corner in unvisited_corners]
+
+
+    return min(distances) if distances else 0
 
 class AStarCornersAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
@@ -465,8 +508,47 @@ def foodHeuristic(state, problem):
     problem.heuristicInfo['wallCount']
     """
     position, foodGrid = state
-    "*** YOUR CODE HERE ***"
-    return 0
+
+    # tuples of food coordinates
+    foodList = foodGrid.asList()
+
+    manhattanDistance = lambda x, y: abs(x[0] - y[0]) + abs(x[1] - y[1])
+    distancesToFoods = [manhattanDistance(position, foodPos) for foodPos in foodList]
+
+    return max(distancesToFoods) if distancesToFoods else 0
+
+def minSpanningTree(uneatenFoodList, pacmanPosition):
+
+    treeSet = set()
+    treeSet.add(pacmanPosition)
+    h = 0
+
+    while uneatenFoodList:
+        # continually select the item in the uneaten food list that is closest to an element in the
+        # treeSet
+        manhattanDistance = lambda x, y: abs(x[0] - y[0]) + abs(x[1] - y[1])
+
+        closest_dist = float('inf')
+        closest_node = None
+
+        for node in treeSet:
+
+            distancesToFoods = [manhattanDistance(node, foodPos) for foodPos in uneatenFoodList]
+            try:
+                closestDistanceNode  = sorted( zip(distancesToFoods, node), key=lambda x: x[0] )
+            except:
+                print 'p'
+            print "closest distance node: ", closestDistanceNode
+            if closestDistanceNode[0] < closest_dist:
+                closest_dist = closestDistanceNode[0]
+                closest_node = closestDistanceNode[1]
+                if closestDistanceNode[1] in uneatenFoodList:
+                    uneatenFoodList.remove(closestDistanceNode[1])
+
+        treeSet.add(closest_node)
+        h += closest_dist
+
+    return h
 
 class ClosestDotSearchAgent(SearchAgent):
     "Search for all food using a sequence of searches"
@@ -498,6 +580,14 @@ class ClosestDotSearchAgent(SearchAgent):
 
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
+
+
+
+
+
+
+
+
 
 class AnyFoodSearchProblem(PositionSearchProblem):
     """
