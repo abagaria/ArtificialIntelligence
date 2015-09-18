@@ -120,7 +120,7 @@ def breadthFirstSearch(problem):
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""
     priorityFunc = lambda node: node.priority
-    return graphSearch(problem, fringe=util.PriorityQueueWithFunction(priorityFunc), debug = "In UCS")
+    return graphSearch(problem, fringe=util.PriorityQueueWithFunction(priorityFunc))
 
 def nullHeuristic(state, problem=None):
     """
@@ -158,11 +158,11 @@ def graphSearch(problem, fringe, debug = None):
             closed.add(currentNode.state)
 
             for (state, action, cost) in problem.getSuccessors(currentNode.state):
-                if cost == 4.0 and debug:
-                    print "state: %s, action: %s, cost: %s" % (state, action, cost)
+                # if debug:
+                #     print "state: %s, action: %s, cost: %s" % (state.position, action, cost)
                 childPath = currentNode.path + [action]
                 childNode = Node(path=childPath, state=state)
-                childNode.priority = cost
+                childNode.priority = cost + currentNode.priority
                 fringe.push(childNode)
 
     # if no goal node found, return error

@@ -415,7 +415,7 @@ def manhattanHeuristicManyGoals(state, problem):
     distances = [dist(xy1, corner) for corner in unvisited_corners]
 
 
-    return min(distances) if distances else 0
+    return max(distances) if distances else 0
 
 class AStarCornersAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
@@ -578,16 +578,7 @@ class ClosestDotSearchAgent(SearchAgent):
         walls = gameState.getWalls()
         problem = AnyFoodSearchProblem(gameState)
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
-
-
-
-
-
-
-
+        return search.graphSearch(problem, util.Queue())
 
 class AnyFoodSearchProblem(PositionSearchProblem):
     """
@@ -620,10 +611,12 @@ class AnyFoodSearchProblem(PositionSearchProblem):
         The state is Pacman's position. Fill this in with a goal test that will
         complete the problem definition.
         """
-        x,y = state
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # check if current position implies that you are eating some food.
+        # The search problem should take care of whether it is the closest
+        # food.
+        return state in self.food.asList()
+
 
 def mazeDistance(point1, point2, gameState):
     """
