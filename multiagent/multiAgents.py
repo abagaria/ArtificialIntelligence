@@ -10,8 +10,6 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
-
 from util import manhattanDistance
 from game import Directions
 import random, util
@@ -124,6 +122,7 @@ class MultiAgentSearchAgent(Agent):
         self.index = 0 # Pacman is always agent index 0
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
+        self.root_successors = []
 
 class MinimaxAgent(MultiAgentSearchAgent):
     """
@@ -157,7 +156,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
         successors = [gameState.generateSuccessor(0, action) for action in gameState.getLegalActions(0)]
 
         # rate the successors
-        initialDepth = 1
+        initialDepth = 0
         evaluated_successors = [self.MinValue(successor, initialDepth) for successor in successors]
 
         best_score = evaluated_successors.index(max(evaluated_successors))
@@ -166,6 +165,8 @@ class MinimaxAgent(MultiAgentSearchAgent):
 
 
     def MinValue(self, gameState, currentDepth):
+
+        currentDepth += 1
         # base case
         if self.terminalTest(gameState, currentDepth):
             return self.evaluationFunction(gameState)
@@ -173,7 +174,6 @@ class MinimaxAgent(MultiAgentSearchAgent):
         # recursive step
         v = 9999999999.0
         agent_num = currentDepth % gameState.getNumAgents()
-        numGhosts = gameState.getNumAgents() - 1
 
         # print agent_num
 
@@ -183,30 +183,34 @@ class MinimaxAgent(MultiAgentSearchAgent):
 
             # depending on which tree layer we are at, recurse to the minValue or maxValue
 
-            if currentDepth % numGhosts == 0:
+            if ((currentDepth + 1) % gameState.getNumAgents()) == 0:
                 # simulate pacman's turn
-                v = min(v, self.MaxValue(successor, currentDepth + 1))
+                v = min(v, self.MaxValue(successor, currentDepth))
 
             else:
                 # simulate ghosts turn
-                v = min(v, self.MinValue(successor, currentDepth + 1))
+                v = min(v, self.MinValue(successor, currentDepth))
         return v
 
     def MaxValue(self, gameState, currentDepth):
 
+        currentDepth += 1
+
         if self.terminalTest(gameState, currentDepth):
             return self.evaluationFunction(gameState)
+
         # print 'max'
         v = -9999999999.0
 
-        # number for pacman
+        # number for PacMan
         agent_num = 0
 
         for action in gameState.getLegalActions(agent_num):
 
             successor = gameState.generateSuccessor(agent_num, action)
 
-            v = max(v, self.MinValue(successor, currentDepth + 1))
+            v = max(v, self.MinValue(successor, currentDepth))
+
         return v
 
     def terminalTest(self, gameState, currentDepth):
@@ -223,7 +227,6 @@ class MinimaxAgent(MultiAgentSearchAgent):
         return False
 
 
-
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
       Your minimax agent with alpha-beta pruning (question 3)
@@ -231,10 +234,117 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
     def getAction(self, gameState):
         """
-          Returns the minimax action using self.depth and self.evaluationFunction
+          Returns the minimax action from the current gameState using self.depth
+          and self.evaluationFunction.
+
+          Here are some method calls that might be useful when implementing minimax.
+
+          gameState.getLegalActions(agentIndex):
+            Returns a list of legal actions for an agent
+            agentIndex=0 means Pacman, ghosts are >= 1
+
+          gameState.generateSuccessor(agentIndex, action):
+            Returns the successor game state after an agent takes an action
+
+          gameState.getNumAgents():
+            Returns the total number of agents in the game
+
+          gameState.isWin():
+            Returns whether or not the game state is a winning state
+
+          gameState.isLose():
+            Returns whether or not the game state is a losing state
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # generate the successors for every legal pacman action
+
+
+        (v, action) = self.MaxValue(gameState, -1, -float("inf"), float("inf"))
+
+        return action
+
+
+    def MinValue(self, gameState, currentDepth, alpha, beta):
+
+        currentDepth += 1
+
+        # base case
+        if self.terminalTest(gameState, currentDepth):
+            return (self.evaluationFunction(gameState), 0)
+
+        # recursive step
+        v = (float('inf'), float('inf'))
+
+        agent_num = currentDepth % gameState.getNumAgents()
+
+        for action in gameState.getLegalActions(agent_num):
+            # iterate through the possible actions, generate a successor for the action
+
+            successor = gameState.generateSuccessor(agent_num, action)
+
+            # depending on which tree layer we are at, recurse to the minValue or maxValue
+
+            if ((currentDepth + 1) % gameState.getNumAgents()) == 0:
+                # simulate pacman's turn
+                new_pair = self.MaxValue(successor, currentDepth, alpha, beta)
+
+
+                if new_pair[0] < v[0]:
+                    v = (new_pair[0], action)
+
+            else:
+                # simulate ghosts turn
+                new_pair = self.MinValue(successor, currentDepth, alpha, beta)
+
+                if new_pair[0] < v[0]:
+                    v = (new_pair[0], action)
+
+            if v[0] < alpha:
+                return v
+
+            # update beta
+            beta = min(beta, v[0])
+
+        return v
+
+    def MaxValue(self, gameState, currentDepth, alpha, beta):
+
+        v = (-float('inf'), -float('inf'))
+
+        currentDepth += 1
+
+        if self.terminalTest(gameState, currentDepth):
+            return (self.evaluationFunction(gameState), 0)
+
+        # number for PacMan
+        agent_num = 0
+
+        for action in gameState.getLegalActions(agent_num):
+
+            successor = gameState.generateSuccessor(agent_num, action)
+            new_pair = self.MinValue(successor, currentDepth, alpha, beta)
+
+            if new_pair[0] > v[0]:
+                v = (new_pair[0], action)
+
+            if v[0] > beta:
+                return v
+
+            alpha = max(alpha, v[0])
+
+        return v
+
+    def terminalTest(self, gameState, currentDepth):
+
+        if gameState.isWin() | gameState.isLose():
+            # print "current depth: ", currentDepth
+            return True # if max depth is reached
+
+        if currentDepth == (gameState.getNumAgents() * self.depth):
+            # print "current depth: ", currentDepth
+            return True
+
+        # print "Terminal Score: ", self.evaluationFunction(gameState)
+        return False
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -248,18 +358,126 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
           All ghosts should be modeled as choosing uniformly at random from their
           legal moves.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # generate the successors for every legal pacman action
+        successors = [gameState.generateSuccessor(0, action) for action in gameState.getLegalActions(0)]
+
+        # rate the successors
+        initialDepth = 0
+        evaluated_successors = [self.ChanceValue(successor, initialDepth) for successor in successors]
+
+        best_score = evaluated_successors.index(max(evaluated_successors))
+
+        return gameState.getLegalActions(0)[best_score]
+
+
+    def ChanceValue(self, gameState, currentDepth):
+
+        currentDepth += 1
+        # base case
+        if self.terminalTest(gameState, currentDepth):
+            return self.evaluationFunction(gameState)
+
+        agent_num = currentDepth % gameState.getNumAgents()
+
+        # print agent_num
+        weightedSum = 0
+        for action in gameState.getLegalActions(agent_num):
+            # iterate through the possible actions, generate a successor for the action
+            successor = gameState.generateSuccessor(agent_num, action)
+            numSuccessors = float(len(gameState.getLegalActions(agent_num)))
+
+            # depending on which tree layer we are at, recurse to the minValue or maxValue
+            if ((currentDepth + 1) % gameState.getNumAgents()) == 0:
+                # simulate pacman's turn
+                weightedSum += ((1.0 / numSuccessors) * self.MaxValue(successor, currentDepth))
+
+            else:
+                # simulate ghosts turn
+                weightedSum += ((1.0 / numSuccessors) * self.ChanceValue(successor, currentDepth))
+
+        return weightedSum
+
+    def MaxValue(self, gameState, currentDepth):
+
+        currentDepth += 1
+
+        if self.terminalTest(gameState, currentDepth):
+            return self.evaluationFunction(gameState)
+
+        # print 'max'
+        v = -float('inf')
+
+        # number for PacMan
+        agent_num = 0
+
+        for action in gameState.getLegalActions(agent_num):
+
+            successor = gameState.generateSuccessor(agent_num, action)
+
+            v = max(v, self.ChanceValue(successor, currentDepth))
+
+        return v
+
+    def terminalTest(self, gameState, currentDepth):
+
+        if gameState.isWin() | gameState.isLose():
+            # print "current depth: ", currentDepth
+            return True # if max depth is reached
+
+        if currentDepth == (gameState.getNumAgents() * self.depth):
+            # print "current depth: ", currentDepth
+            return True
+
+        # print "Terminal Score: ", self.evaluationFunction(gameState)
+        return False
+
+
+eaten = False
 
 def betterEvaluationFunction(currentGameState):
     """
       Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
       evaluation function (question 5).
-
-      DESCRIPTION: <write something here so we know what you did>
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    global eaten
+    newPos = currentGameState.getPacmanPosition()
+    newFood = currentGameState.getFood()
+    newGhostStates = currentGameState.getGhostStates()
+    newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+
+    powerPellets = currentGameState.getCapsules()
+    distancesToPowerPellets = [manhattanDistance(newPos, powerPos) for powerPos in powerPellets]
+
+    foodDistances   = [manhattanDistance(newPos, foodPos) for foodPos in newFood.asList()]
+
+    ghostDistances = [manhattanDistance(newPos, ghostState.getPosition()) \
+                      for ghostState in newGhostStates]
+
+    closestGhostDistance = min(ghostDistances)
+
+    if closestGhostDistance < 1:
+        evalFunc = -100.0
+
+    # elif closestGhostDistance < 2:
+    #     evalFunc = 0.0
+
+    elif not len(foodDistances):
+        evalFunc = 999999.0
+
+    else:
+        evalFunc = 10.0 * currentGameState.getScore() + 1.0 / (min(foodDistances) + 1)
+
+    # If you are close to a power pellet, go get it
+    if (len(powerPellets)) < 2 and not eaten :
+        evalFunc += 100000.0
+        eaten = not eaten
+
+    # If pacman has already eaten the power pellet
+    if newScaredTimes:
+        evalFunc += (2.0 / (min(ghostDistances) + 1.0))
+
+    return evalFunc
+
 
 # Abbreviation
 better = betterEvaluationFunction
