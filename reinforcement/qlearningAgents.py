@@ -42,7 +42,6 @@ class QLearningAgent(ReinforcementAgent):
         "You can initialize Q-values here..."
         ReinforcementAgent.__init__(self, **args)
         self.qvalues = util.Counter() # A Counter is a dict with default 0
-        self.directions = { Directions.NORTH : 0, Directions.EAST : 1, Directions.SOUTH: 2, Directions.WEST: 3 }
 
     def getQValue(self, state, action):
         """
@@ -50,9 +49,7 @@ class QLearningAgent(ReinforcementAgent):
           Should return 0.0 if we have never seen a state
           or the Q node value otherwise
         """
-        if not self.qvalues[state]:
-            return 0
-        return  self.qvalues[state][self.directions[action]]
+        return  self.qvalues[(state, action)]
 
 
     def computeValueFromQValues(self, state):
@@ -62,10 +59,15 @@ class QLearningAgent(ReinforcementAgent):
           there are no legal actions, which is the case at the
           terminal state, you should return a value of 0.0.
         """
-        if not self.qvalues[state]:
-            return 0
+        actions = self.getLegalActions(state)
 
-        return max(self.qvalues[state])
+        # Terminal state test. Terminal state must have action = None.
+        if not len(actions):
+            return self.qvalues[(state, None)]
+
+        qValues = [self.qvalues[(state, action)] for action in actions]
+
+        return max(qValues)
 
     def computeActionFromQValues(self, state):
         """
@@ -73,22 +75,16 @@ class QLearningAgent(ReinforcementAgent):
           are no legal actions, which is the case at the terminal state,
           you should return None.
         """
-        if not self.qvalues[state]:
+        actions = self.getLegalActions(state)
+
+        # Terminal state test
+        if not len(actions):
             return None
 
-        max_q = max(self.qvalues[state])
+        qValuesAndActions = [(self.qvalues[(state, action)], action) for action in actions]
 
-        if self.qvalues[state].index(max_q) == 0:
-            return Directions.NORTH
-
-        if self.qvalues[state].index(max_q)  == 1:
-            return  Directions.EAST
-
-        if self.qvalues[state].index(max_q)  == 2:
-            return  Directions.SOUTH
-
-        if self.qvalues[state].index(max_q)  == 3:
-            return Directions.WEST
+        # return the action corresponding the
+        return max(qValuesAndActions)[1]
 
     def getAction(self, state):
         """
@@ -102,17 +98,15 @@ class QLearningAgent(ReinforcementAgent):
           HINT: To pick randomly from a list, use random.choice(list)
         """
         # Pick Action
-        legalActions = self.getLegalActions(state)
+        actions = self.getLegalActions(state)
 
-        if not legalActions:
+        if not len(actions):
             return None
 
         if flipCoin(self.epsilon):
-            direction_list = [Directions.NORTH, Directions.EAST, Directions.SOUTH, Directions.WEST]
-            return random.choice(direction_list)
+            return random.choice(actions)
 
-        else:
-            return self.computeActionFromQValues(state)
+        return self.computeActionFromQValues(state)
 
     def update(self, state, action, nextState, reward):
         """
@@ -123,15 +117,12 @@ class QLearningAgent(ReinforcementAgent):
           NOTE: You should never call this function,
           it will be called on your behalf
         """
-        if not self.qvalues[state]:
-            self.qvalues[state] = [0,0,0,0]
-
         sample = reward + self.discount * self.computeValueFromQValues(nextState)
+        Q_sa = self.qvalues[(state, action)]
 
-        Q_sa = self.qvalues[state][self.directions[action]]
-        self.qvalues[state][self.directions[action]] = (1 - self.alpha) * Q_sa + (self.alpha * sample)
+        self.qvalues[(state, action)] = (1 - self.alpha) * Q_sa + (self.alpha * sample)
 
-        return
+        return None
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
