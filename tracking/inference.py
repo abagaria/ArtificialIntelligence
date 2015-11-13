@@ -249,6 +249,7 @@ class ParticleFilter(InferenceModule):
     def __init__(self, ghostAgent, numParticles=300):
         InferenceModule.__init__(self, ghostAgent);
         self.setNumParticles(numParticles)
+        self.countcount = 0
 
     def setNumParticles(self, numParticles):
         self.numParticles = numParticles
@@ -268,25 +269,12 @@ class ParticleFilter(InferenceModule):
         """
         # particle list is a list of tuples. each particle has an index and a position
         self.particles = []
-        n_positions = len(self.legalPositions) - 1
-        # for particle in range(self.numParticles):
-        #     if n_positions < self.numParticles:
-        #         particle = random.choice(self.legalPositions)
-        #         self.particles.append(particle)
-
-        #     else:
-        #         # until we find a spot with no particles
-        #         while randPos in self.particles:
-        #             randPos = random.choice(self.legalPositions)
-        #         self.particles.append(randPos)
         count = 0
         while count < self.numParticles:
             particle = self.legalPositions[count % len(self.legalPositions)]
             self.particles.append(particle)
             count += 1
-
-
-        print 'dist post initialize', self.getBeliefDistribution()
+        # print 'dist post initialize', self.getBeliefDistribution()
 
 
     def observe(self, observation, gameState):
@@ -304,7 +292,7 @@ class ParticleFilter(InferenceModule):
 
              As before, you can check if a ghost has been captured by Pacman by
              checking if it has a noisyDistance of None.
-
+u
           2) When all particles receive 0 weight, they should be recreated from
              the prior distribution by calling initializeUniformly. The total
              weight for a belief distribution can be found by calling totalCount
@@ -320,52 +308,48 @@ class ParticleFilter(InferenceModule):
         emissionModel = busters.getObservationDistribution(noisyDistance)
         pacmanPosition = gameState.getPacmanPosition()
 
+        # Weight particles
+        weights = util.Counter()
+
         # handle ghost caught edge case
         if noisyDistance is None:
             for particle in range(self.numParticles):
                 self.particles[particle] = self.getJailPosition()
+            weights[self.getJailPosition()] = 1.0
+            weights.normalize()
+            self.redistributeParticles(weights)
+            print "And the weights are: ", weights
+            print "distribution: Hallo: ", self.redistributeParticles(weights)
             return
-
-        # Weight particles
-        weights = []
-        # print "particle list: ", self.particles
-        for index, particle in enumerate(self.particles):
-
+        
+        for particle in self.particles:
             # find the distance between the current particle and the pacman
-            # print "pacman position: ", pacmanPosition
-            # print "particle location: ", particle
-
             distance = util.manhattanDistance(pacmanPosition, particle)
-
             # w(x) = P(e | x) = emissionModel[distance]
-            weights.append(emissionModel[distance])
+            weights[particle] += emissionModel[distance]
 
         # if all weights are 0, do a thing
-        if sum(weights) == 0:
-            self.initializeUniformly()
+        if weights.totalCount() == 0:
+            self.initializeUniformly(gameState)
+
         # else do another thing
         else:
-            normalizedWeights = [weight / sum(weights) for weight in weights]
-            # find the cumsum of the normalized weights
-            cumulativeWeights = [sum(normalizedWeights[:i+1]) for i in range(len(normalizedWeights))]
-            self.redistributeParticles(cumulativeWeights)
+            weights.normalize()
+            self.redistributeParticles(weights)
+
+        self.countcount += 1
+
+        # print 'dist post observe # ', self.countcount, ' is ', self.getBeliefDistribution()
 
 
-    def redistributeParticles(self, cumsums):
+    def redistributeParticles(self, weights):
         newParticles = []
-        cumsums.insert(0, 0)
+        count = 0
+        while count < self.numParticles:
+            particle = util.sample(weights)
+            newParticles.append(particle)
+            count += 1
 
-        for i in range(len(cumsums)):
-            r = random.random()
-            for bucket in range(len(cumsums) - 1):
-                lower_bound = cumsums[bucket]
-                upper_bound = cumsums[bucket+1]
-
-                if lower_bound <= r <= upper_bound:
-                    # print "cumsums, particles:", len(cumsums), len(self.particles)
-                    # print 'bucket', bucket
-                    newParticles.append(self.particles[bucket])
-                    break
         self.particles = newParticles
 
     def elapseTime(self, gameState):
