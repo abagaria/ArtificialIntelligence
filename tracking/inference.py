@@ -269,20 +269,24 @@ class ParticleFilter(InferenceModule):
         # particle list is a list of tuples. each particle has an index and a position
         self.particles = []
         n_positions = len(self.legalPositions) - 1
-        for particle in range(self.numParticles):
-            randPos = random.randint(0, n_positions)
+        # for particle in range(self.numParticles):
+        #     if n_positions < self.numParticles:
+        #         particle = random.choice(self.legalPositions)
+        #         self.particles.append(particle)
 
-            if n_positions < self.numParticles:
-                # print "randomPos, len", randPos, len(self.legalPositions)
-                particle = self.legalPositions[randPos]
-                self.particles.append(particle)
+        #     else:
+        #         # until we find a spot with no particles
+        #         while randPos in self.particles:
+        #             randPos = random.choice(self.legalPositions)
+        #         self.particles.append(randPos)
+        count = 0
+        while count < self.numParticles:
+            particle = self.legalPositions[count % len(self.legalPositions)]
+            self.particles.append(particle)
+            count += 1
 
-            else:
-                # until we find a spot with no particles
-                while randPos in self.particles:
-                    randPos = random.randint(0, n_positions)
-                particle = self.legalPositions[randPos]
-                self.particles.append(particle)
+
+        print 'dist post initialize', self.getBeliefDistribution()
 
 
     def observe(self, observation, gameState):
