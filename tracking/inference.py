@@ -318,8 +318,6 @@ u
             weights[self.getJailPosition()] = 1.0
             weights.normalize()
             self.redistributeParticles(weights)
-            print "And the weights are: ", weights
-            print "distribution: Hallo: ", self.redistributeParticles(weights)
             return
         
         for particle in self.particles:
@@ -366,8 +364,14 @@ u
         util.sample(Counter object) is a helper method to generate a sample from
         a belief distribution.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+
+        newParticleList = list()
+        for oldPos in self.particles:
+            newPosDist = self.getPositionDistribution(self.setGhostPosition(gameState, oldPos))
+            newPos = util.sample(newPosDist)
+            newParticleList.append(newPos)
+
+        self.particles = newParticleList
 
     def getBeliefDistribution(self):
         """
@@ -388,6 +392,9 @@ u
                 if particleLocation == particle:
                     count += 1.0
             beliefDist[particleLocation] = count / len(self.particles)
+
+        if beliefDist.totalCount() == 0:
+            beliefDist[self.getJailPosition()] = 1.0
 
         return beliefDist
 
@@ -430,6 +437,10 @@ class JointParticleFilter:
     def __init__(self, numParticles=600):
         self.setNumParticles(numParticles)
 
+        # self.particles initialize
+        self.particles = []
+
+
     def setNumParticles(self, numParticles):
         self.numParticles = numParticles
 
@@ -461,7 +472,20 @@ class JointParticleFilter:
         Storing your particles as a Counter (where there could be an associated
         weight with each position) is incorrect and may produce errors.
         """
-        "*** YOUR CODE HERE ***"
+
+        # get all the possible assignments of ghosts in different locations
+        products = itertools.product(self.legalPositions, repeat = self.numGhosts)
+
+        products = list(products)
+
+        # shuffle products to make it random order
+        random.shuffle(products)
+
+        count = 0
+        while count < self.numParticles:
+            particle = products[count % len(products)]
+            self.particles.append(particle)
+            count += 1
 
     def addGhostAgent(self, agent):
         """
@@ -508,7 +532,7 @@ class JointParticleFilter:
             return
         emissionModels = [busters.getObservationDistribution(dist) for dist in noisyDistances]
 
-        "*** YOUR CODE HERE ***"
+        
 
     def getParticleWithGhostInJail(self, particle, ghostIndex):
         """
