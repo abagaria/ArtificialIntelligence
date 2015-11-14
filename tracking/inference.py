@@ -532,7 +532,7 @@ class JointParticleFilter:
             return
         emissionModels = [busters.getObservationDistribution(dist) for dist in noisyDistances]
 
-        
+
 
     def getParticleWithGhostInJail(self, particle, ghostIndex):
         """
@@ -599,8 +599,33 @@ class JointParticleFilter:
         self.particles = newParticles
 
     def getBeliefDistribution(self):
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        """
+        Return the agent's current belief state, a distribution over ghost
+        locations conditioned on all evidence and time passage. This method
+        essentially converts a list of particles into a belief distribution (a
+        Counter object)
+        """
+        if self.particles is None:
+            print "Empty Particle List"
+            return
+        beliefDist = util.Counter()
+        state_space = itertools.product(self.legalPositions, repeat = self.numGhosts)
+
+        for state in state_space:
+            count = 0
+            for particle in self.particles:
+                if state == particle:
+                    count += 1.0
+            beliefDist[state] = count / len(self.particles)
+
+        if beliefDist.totalCount() == 0:
+            beliefDist[self.getJailPosition()] = 1.0
+
+
+        return beliefDist
+
+
+
 
 # One JointInference module is shared globally across instances of MarginalInference
 jointInference = JointParticleFilter()
